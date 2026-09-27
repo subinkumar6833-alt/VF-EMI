@@ -1,0 +1,1870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>VF EMI Calculator</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a56db">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Loan Calc">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#ffffff;
+    --panel:#f5f8ff;
+    --ink:#0f2f66;
+    --blue:#1a56db;
+    --blue-deep:#0f2f66;
+    --blue-soft:#e8f0fe;
+    --blue-mid:#4a7fe8;
+    --charcoal:#233247;
+    --muted:#6b7a94;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--blue-soft);
+    color:var(--charcoal);
+    font-family:'IBM Plex Sans',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .sheet{
+    max-width:880px;
+    margin:40px auto 80px;
+    background:var(--paper);
+    box-shadow:0 30px 60px -20px rgba(15,47,102,0.18);
+    position:relative;
+    padding:56px 48px 48px 48px;
+    border-radius:16px;
+  }
+
+  .appbar{
+    position:relative;
+    overflow:hidden;
+    background:linear-gradient(135deg, var(--blue-soft), #ffffff 65%);
+    border-radius:16px;
+    padding:20px 20px 22px;
+    margin-bottom:8px;
+  }
+  .appbar-decor{ position:absolute; inset:0; pointer-events:none; }
+  .decor-svg{ position:absolute; opacity:0.09; color:var(--ink); }
+  .decor-car{ right:-14px; bottom:-16px; width:190px; height:auto; }
+  .decor-calc{ right:78px; top:-12px; width:66px; height:auto; transform:rotate(8deg); }
+  .appbar-row{
+    position:relative; z-index:1;
+    display:flex; justify-content:space-between; align-items:flex-start; gap:12px;
+  }
+  .appbar-title-wrap{ min-width:0; }
+  .appbar-title{
+    font-family:'Fraunces',serif; font-weight:600; font-size:22px;
+    color:var(--ink); margin:0;
+    display:flex; align-items:center; gap:9px;
+  }
+  .appbar-sub{ font-size:12px; color:var(--muted); margin:4px 0 0; }
+  .appbar-actions{
+    display:flex; gap:8px;
+    margin-left:auto;
+    align-self:center;
+    text-transform:none;
+    letter-spacing:normal;
+  }
+  .icon-btn{
+    width:34px; height:34px;
+    display:flex; align-items:center; justify-content:center;
+    border-radius:9px;
+    background:#fff;
+    color:var(--ink);
+    border:1px solid rgba(15,47,102,0.14);
+    box-shadow:0 3px 8px -3px rgba(15,47,102,0.2);
+    cursor:pointer;
+    padding:0;
+    margin-top:0;
+    transition:background .2s ease, transform .1s ease;
+  }
+  .icon-btn:hover{ background:var(--blue-soft); }
+  .icon-btn:active{ transform:scale(0.92); }
+  .icon-btn-primary{ background:var(--blue); color:#fff; border-color:var(--blue); }
+  .icon-btn-primary:hover{ background:var(--blue-deep); }
+
+  .history-item{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    flex-wrap:wrap;
+    padding:12px 14px;
+    border:1px solid rgba(15,47,102,0.12);
+    border-radius:10px;
+    margin-bottom:8px;
+    background:var(--panel);
+  }
+  .history-item-info{ flex:1 1 160px; min-width:0; }
+  .history-item-label{ font-weight:600; color:var(--ink); font-size:13.5px; }
+  .history-item-meta{ font-size:11.5px; color:var(--muted); margin-top:2px; }
+  .history-item-actions{ display:flex; gap:6px; flex:0 1 auto; margin-left:auto; }
+  .history-item-actions button{
+    margin-top:0; padding:8px 10px; font-size:11px;
+  }
+  .history-restore{ background:var(--blue); color:#fff; border:none; }
+  .history-delete{
+    background:#fff; color:#b3261e; border:1px solid rgba(179,38,30,0.35);
+    width:30px; padding:8px 0 !important; text-align:center;
+  }
+  .icon-btn.confirm-armed{ background:#b3261e !important; border-color:#b3261e !important; color:#fff !important; }
+
+  .toast{
+    position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(16px);
+    background:var(--ink); color:#fff; padding:10px 16px; border-radius:10px;
+    font-size:12.5px; font-family:'IBM Plex Sans',sans-serif; line-height:1.4;
+    max-width:88%; text-align:center;
+    opacity:0; pointer-events:none;
+    transition:opacity .25s ease, transform .25s ease;
+    z-index:80; box-shadow:0 10px 24px -8px rgba(0,0,0,0.4);
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .date-display{
+    font-size:11px; color:var(--muted); margin-top:3px; font-family:'IBM Plex Mono',monospace; font-weight:600;
+  }
+
+  .stamp{
+    width:9px; height:9px; border-radius:50%;
+    background:var(--blue-mid);
+    display:inline-block;
+    transition:transform .2s ease, opacity .2s ease;
+  }
+  .stamp.pulse{ transform:scale(1.9); opacity:0.55; }
+
+  @media (max-width:600px){
+    .appbar{ padding:16px 16px 18px; }
+    .appbar-title{ font-size:18px; }
+    .decor-car{ width:130px; }
+    .decor-calc{ width:50px; }
+  }
+
+  section{ margin-top:30px; }
+  .sec-head{
+    display:flex; align-items:baseline; gap:10px;
+    font-family:'Fraunces',serif;
+    font-weight:600; font-size:15px;
+    color:var(--ink);
+    margin-bottom:10px;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+  }
+  .sec-head .n{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px; color:var(--blue-mid);
+  }
+  .note{
+    font-size:12px; color:var(--muted); margin-top:2px; font-style:italic;
+  }
+
+  .row{
+    display:grid;
+    grid-template-columns: 1fr 180px;
+    align-items:center;
+    padding:9px 0;
+    gap:12px;
+  }
+  .row .label{ font-size:14px; color:var(--charcoal); }
+  .row .label small{ display:block; font-size:11px; color:var(--muted); font-style:italic; margin-top:1px;}
+
+  input[type=number], input[type=date], input[type=text], select{
+    width:100%;
+    text-align:right;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:16px;
+    font-weight:700;
+    background:var(--panel);
+    border:none;
+    border-radius:8px;
+    padding:8px 10px;
+    color:var(--ink);
+  }
+  input[type=text]{ text-align:left; font-family:'IBM Plex Sans',sans-serif; font-weight:400; }
+  input[type=date]{ font-weight:700; font-size:14px; padding:8px 6px; }
+  select{ appearance:none; -webkit-appearance:none; cursor:pointer; }
+  input:focus, select:focus{ outline:2px solid var(--blue-mid); outline-offset:1px; }
+
+  .prefix-wrap{ position:relative; }
+  .prefix-wrap span.pfx{
+    position:absolute; left:10px; top:50%; transform:translateY(-50%);
+    font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--muted);
+  }
+  .prefix-wrap input{ padding-left:22px; }
+
+  .figure{
+    text-align:right;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:17px;
+    color:var(--ink);
+    font-weight:700;
+  }
+  .figure.big{ font-size:23px; color:var(--blue); font-weight:700; }
+  .figure.neg{ color:#c0392b; }
+
+  .row.highlight{
+    background:var(--blue-soft);
+    margin:0; padding:10px 16px;
+    border-radius:10px;
+  }
+  .row.highlight .label{ font-weight:600; color:var(--blue); }
+  .row.highlight .figure{ font-size:19px; color:var(--blue); font-weight:700; }
+  .row.highlight .figure.big{ font-size:23px; }
+
+  .row-combo{
+    padding:9px 0;
+  }
+  .row-combo .label{ font-size:14px; color:var(--charcoal); margin-bottom:6px; }
+  .row-combo .label small{ display:block; font-size:11px; color:var(--muted); font-style:italic; margin-top:1px;}
+  .row-combo .label-line{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    margin-bottom:6px;
+  }
+  .row-combo .label-line .label{ margin-bottom:0; }
+  .mode-select{
+    width:auto;
+    flex:0 0 auto;
+    font-size:11px;
+    padding:5px 8px;
+    background:var(--blue-soft);
+    color:var(--blue);
+    font-weight:600;
+    border-radius:6px;
+  }
+  .mode-select.is-funded{
+    background:var(--blue);
+    color:#fff;
+  }
+  .mode-select.is-nonfunded{
+    background:#c0392b;
+    color:#fff;
+  }
+
+  #emiType{
+    font-size:12px;
+    font-weight:600;
+    text-align:left;
+    padding:7px 6px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  #emiType.is-capitalised{
+    background:var(--blue);
+    color:#fff;
+    font-weight:700;
+  }
+  #emiType.is-addfirst{
+    background:var(--blue-soft);
+    color:var(--blue);
+    font-weight:700;
+  }
+  #emiType.is-normal{
+    background:#fdeaea;
+    color:#c0392b;
+    font-weight:700;
+  }
+
+  #tenureSelect, #tenureMonthsSelect{
+    background:#d4f1f9;
+    color:var(--ink);
+    font-weight:700;
+  }
+
+  .fee-block{ margin:16px 0; }
+  .fee-block-title{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:16px;
+    color:var(--ink);
+    margin-bottom:10px;
+  }
+  .fee-block-title .accent-bar{
+    display:inline-block;
+    width:5px;
+    height:20px;
+    background:#c9942b;
+    border-radius:2px;
+    flex:0 0 auto;
+  }
+  .fee-table-wrap{
+    border-radius:10px;
+    background:var(--panel);
+  }
+  table.fee-table{
+    width:100%;
+    table-layout:fixed;
+    border-collapse:collapse;
+  }
+  table.fee-table col.col-item{ width:22%; }
+  table.fee-table col.col-pct{ width:18%; }
+  table.fee-table col.col-amt{ width:38%; }
+  table.fee-table col.col-fund{ width:22%; }
+  table.fee-table thead th{
+    background:var(--blue-soft);
+    color:var(--ink);
+    font-family:'IBM Plex Sans',sans-serif;
+    font-weight:600;
+    font-size:10.5px;
+    text-align:left;
+    padding:8px 4px;
+    line-height:1.2;
+  }
+  table.fee-table thead th:not(:first-child){ text-align:center; }
+  table.fee-table tbody td{
+    padding:6px 2px;
+    vertical-align:middle;
+    border-top:1px solid rgba(15,47,102,0.06);
+  }
+  table.fee-table tbody td.fee-item{
+    font-size:11px;
+    color:var(--charcoal);
+    line-height:1.15;
+    padding-left:5px;
+  }
+  table.fee-table tbody td.fee-pct-empty{
+    text-align:center;
+    color:var(--muted);
+    font-weight:700;
+    font-size:15px;
+  }
+  table.fee-table input[type=number]{
+    width:100%;
+    min-width:0;
+    background:var(--paper);
+    text-align:center;
+    font-size:15px;
+    font-weight:700;
+    padding:7px 1px;
+  }
+  table.fee-table .mode-select{
+    width:100%;
+    text-align:center;
+    font-size:10px;
+    padding:6px 1px;
+  }
+  @media (max-width:400px){
+    table.fee-table thead th{ font-size:9.5px; padding:7px 3px; }
+    table.fee-table tbody td.fee-item{ font-size:10px; }
+    table.fee-table input[type=number]{ font-size:13.5px; padding:6px 1px; }
+    table.fee-table .mode-select{ font-size:9px; padding:5px 1px; }
+  }
+
+  .row-combo .combo-line{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .row-combo .prefix-wrap{ flex:0 0 84px; }
+  .row-combo .prefix-wrap input{ text-align:right; }
+  .row-combo .figure{ font-size:17px; white-space:nowrap; flex:1; text-align:right; }
+  .row-combo .prefix-wrap.amt-wrap{ flex:1; }
+  .row-combo .combo-line select{ flex:1; }
+  @media (max-width:600px){
+    .row-combo .prefix-wrap{ flex:0 0 70px; }
+    .row-combo .figure{ font-size:15.5px; }
+  }
+
+  .total-block{
+    margin-top:18px;
+    padding:18px 20px;
+    background:var(--blue-soft);
+    border-radius:12px;
+    display:flex; justify-content:space-between; align-items:baseline;
+  }
+  .total-block .label{
+    font-family:'Fraunces',serif; font-size:15px; color:var(--ink); font-weight:600;
+  }
+  .total-block .figure{ font-size:29px; color:var(--blue); }
+
+  button{
+    margin-top:14px;
+    background:var(--blue);
+    color:#fff;
+    border:none;
+    border-radius:10px;
+    padding:11px 20px;
+    font-family:'IBM Plex Sans',sans-serif;
+    font-size:13.5px;
+    font-weight:600;
+    cursor:pointer;
+    transition:background .2s ease;
+  }
+  button:hover{ background:var(--blue-deep); }
+  button:active{ transform:translateY(1px); }
+  .btn-secondary{
+    background:var(--paper);
+    color:var(--blue);
+    border:1.5px solid var(--blue);
+  }
+  .btn-secondary:hover{ background:var(--blue-soft); }
+
+  .summary-row{
+    display:flex; justify-content:space-between; align-items:baseline;
+    padding:8px 0;
+    font-size:15px;
+  }
+  .summary-row .k{ color:var(--charcoal); }
+  .summary-row .v{ font-family:'IBM Plex Mono',monospace; color:var(--ink); font-weight:700; text-align:right; font-size:16px; }
+  .summary-row:nth-child(even){ background:var(--panel); border-radius:8px; padding-left:10px; padding-right:10px; margin:0 -10px; }
+
+  table{ width:100%; border-collapse:collapse; margin-top:6px; }
+  th{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px; letter-spacing:0.06em; text-transform:uppercase;
+    color:var(--muted); text-align:right; font-weight:500;
+    padding:8px 10px;
+  }
+  th:first-child, td:first-child{ text-align:left; }
+  td{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:16px; text-align:right; padding:11px 10px;
+    font-weight:700;
+  }
+  tr:nth-child(even) td{ background:var(--panel); }
+  tr:nth-child(even) td:first-child{ border-radius:8px 0 0 8px; }
+  tr:nth-child(even) td:last-child{ border-radius:0 8px 8px 0; }
+  tr.best td{ background:var(--blue-soft); font-weight:700; color:var(--blue); }
+  tr.best td:first-child{ border-radius:8px 0 0 8px; }
+  tr.best td:last-child{ border-radius:0 8px 8px 0; }
+  td.tenure{ font-family:'IBM Plex Sans',sans-serif; color:var(--charcoal); font-weight:600; }
+
+  .assumptions{
+    margin-top:34px; padding-top:16px;
+  }
+  .assumptions .sec-head{ margin-bottom:8px; }
+  .assumptions ul{ margin:0; padding-left:18px; font-size:12.5px; color:var(--muted); line-height:1.8; }
+
+  footer{
+    margin-top:30px; padding-top:14px;
+    font-size:11px; color:var(--muted); font-family:'IBM Plex Mono',monospace;
+    display:flex; justify-content:space-between;
+  }
+
+  @media (max-width:600px){
+    .sheet{ padding:40px 20px 40px 20px; margin:16px; }
+    .row{ grid-template-columns:1fr 130px; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .stamp{ transition:none; }
+  }
+
+  .tabnav{
+    display:flex;
+    gap:6px;
+    margin:14px 0 4px;
+    background:var(--blue-soft);
+    padding:5px;
+    border-radius:12px;
+  }
+  .tabnav-btn{
+    flex:1;
+    margin:0;
+    padding:10px 8px;
+    border-radius:9px;
+    background:transparent;
+    color:var(--muted);
+    font-family:'IBM Plex Sans',sans-serif;
+    font-size:12.5px;
+    font-weight:600;
+    border:none;
+    cursor:pointer;
+    transition:background .2s ease, color .2s ease;
+  }
+  .tabnav-btn:hover{ background:rgba(15,47,102,0.06); }
+  .tabnav-btn.active{
+    background:var(--blue);
+    color:#fff;
+    box-shadow:0 6px 14px -6px rgba(26,86,219,0.5);
+  }
+  .tab-panel{ display:none; }
+  .tab-panel.active{ display:block; }
+
+  .payout-toggle{
+    display:flex; gap:8px; margin-bottom:4px;
+  }
+  .payout-toggle button{
+    flex:1; margin:0; padding:9px 6px;
+    font-size:11.5px;
+    background:var(--paper);
+    color:var(--blue);
+    border:1.5px solid var(--blue);
+  }
+  .payout-toggle button.active{
+    background:var(--blue);
+    color:#fff;
+  }
+</style>
+</head>
+<body>
+
+<div class="sheet">
+  <header class="appbar">
+    <div class="appbar-decor" aria-hidden="true">
+      <svg class="decor-svg decor-calc" viewBox="0 0 90 110" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="3">
+        <rect x="4" y="4" width="82" height="102" rx="10"/>
+        <rect x="14" y="14" width="62" height="20" rx="3"/>
+        <circle cx="22" cy="52" r="6"/><circle cx="45" cy="52" r="6"/><circle cx="68" cy="52" r="6"/>
+        <circle cx="22" cy="74" r="6"/><circle cx="45" cy="74" r="6"/><circle cx="68" cy="74" r="6"/>
+        <circle cx="22" cy="96" r="6"/><circle cx="45" cy="96" r="6"/><circle cx="68" cy="96" r="6"/>
+      </svg>
+      <svg class="decor-svg decor-car" viewBox="0 0 220 100" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round" stroke-linecap="round">
+        <path d="M18 62 L34 34 Q40 26 52 26 L140 26 Q152 26 158 36 L172 62"/>
+        <path d="M8 62 L8 78 Q8 84 14 84 L24 84 M198 84 L206 84 Q212 84 212 78 L212 62 Q212 62 205 58 L172 62 L18 62 L15 58 Q8 62 8 62 Z"/>
+        <line x1="55" y1="26" x2="48" y2="62"/>
+        <line x1="120" y1="26" x2="120" y2="62"/>
+        <circle cx="52" cy="84" r="15"/>
+        <circle cx="168" cy="84" r="15"/>
+      </svg>
+    </div>
+    <div class="appbar-row">
+      <div class="appbar-title-wrap">
+        <p class="appbar-title">VF EMI Calculator<span class="stamp" id="stamp"></span></p>
+        <p class="appbar-sub">Vehicle &amp; asset loan reckoner</p>
+      </div>
+    </div>
+  </header>
+
+  <div class="tabnav">
+    <button type="button" class="tabnav-btn active" data-tab="tabEmi">EMI Calculator</button>
+    <button type="button" class="tabnav-btn" data-tab="tabPayout">Payout Calculator</button>
+  </div>
+
+  <section id="historySection" style="display:none; margin-top:20px;">
+    <div class="sec-head"><span class="n">—</span> Saved Calculations</div>
+    <p class="note" id="historyEmpty" style="display:none;">No saved calculations yet. Tap the save icon to snapshot the current entry.</p>
+    <div id="historyList"></div>
+    <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:10px;">
+      <button id="historyCloseBtn" type="button" class="btn-secondary" style="margin-top:0;">Close</button>
+    </div>
+  </section>
+
+  <div id="tabEmi" class="tab-panel active">
+
+  <section>
+    <div class="sec-head">
+      <span class="n">01</span> Customer Details
+      <div class="appbar-actions">
+        <button type="button" class="icon-btn" id="saveBtn" title="Save this calculation" aria-label="Save this calculation">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+        </button>
+        <button type="button" class="icon-btn icon-btn-primary" id="restoreBtn" title="View previously saved calculations" aria-label="View previously saved calculations">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="label">Customer name</div>
+      <input type="text" id="custName" placeholder="Full name">
+    </div>
+    <div class="row">
+      <div class="label">Vehicle</div>
+      <input type="text" id="custVehicle" placeholder="Make, model">
+    </div>
+    <div class="row">
+      <div class="label">Dealer</div>
+      <input type="text" id="custDealer" placeholder="Dealer name">
+    </div>
+    <div class="row">
+      <div class="label">On Road Price</div>
+      <div class="prefix-wrap"><span class="pfx">₹</span><input type="number" id="onRoadPrice" value="3000000" step="1"></div>
+    </div>
+    <div class="row">
+      <div class="label">LTV %<small>Asset loan amount ÷ On Road Price</small></div>
+      <div class="prefix-wrap"><span class="pfx">%</span><input type="number" id="ltvPct" value="90" step="0.1"></div>
+    </div>
+    <div class="row highlight">
+      <div class="label">Down Payment<small>On Road Price − Net Disb Amount</small></div>
+      <div class="figure" id="downPayment">—</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="n">02</span> Loan Inputs</div>
+    <div class="row">
+      <div class="label">Asset loan amount</div>
+      <div class="prefix-wrap"><span class="pfx">₹</span><input type="number" id="assetLoan" value="2700000" step="1"></div>
+    </div>
+    <div class="row">
+      <div class="label">Sourcing Fee&amp; Stamp Duty</div>
+      <div class="prefix-wrap"><span class="pfx">₹</span><input type="number" id="stampCharges" value="2400" step="1"></div>
+    </div>
+    <div class="row highlight">
+      <div class="label">Net Disb Amount<small>Asset loan amount − Stamp Duty − non-funded items</small></div>
+      <div class="figure big" id="releaseAmount">—</div>
+    </div>
+    <div class="fee-block">
+      <div class="fee-block-title"><span class="accent-bar"></span>Charges and cross sells</div>
+      <div class="fee-table-wrap">
+        <table class="fee-table">
+          <colgroup>
+            <col class="col-item"><col class="col-pct"><col class="col-amt"><col class="col-fund">
+          </colgroup>
+          <thead>
+            <tr><th>Item</th><th>%</th><th>Amt (₹)</th><th>Funded</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="fee-item">Processing Fee</td>
+              <td><input type="number" id="feePct" value="1.5" step="0.05"></td>
+              <td><input type="number" id="processingFeeAmt" step="1"></td>
+              <td>
+                <select id="feeFunded" class="mode-select">
+                  <option value="funded" selected>Yes</option>
+                  <option value="nonfunded">No</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td class="fee-item">Life Insurance</td>
+              <td><input type="number" id="insPct" value="1.25" step="0.05"></td>
+              <td><input type="number" id="lifeInsuranceAmt" step="1"></td>
+              <td>
+                <select id="insFunded" class="mode-select">
+                  <option value="funded" selected>Yes</option>
+                  <option value="nonfunded">No</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td class="fee-item">PA Cover</td>
+              <td>
+                <select id="paCoverPreset" class="mode-select">
+                  <option value="6625" selected>6625</option>
+                  <option value="8542">8542</option>
+                  <option value="3990">3990</option>
+                  <option value="nil">Nil</option>
+                  <option value="other">Other</option>
+                </select>
+              </td>
+              <td><input type="number" id="paCover" value="6625" step="1" readonly></td>
+              <td>
+                <select id="paCoverFunded" class="mode-select">
+                  <option value="funded" selected>Yes</option>
+                  <option value="nonfunded">No</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td class="fee-item">EMI Protect</td>
+              <td>
+                <select id="emiProtectPreset" class="mode-select">
+                  <option value="3647">3647</option>
+                  <option value="2735">2735</option>
+                  <option value="nil" selected>Nil</option>
+                  <option value="other">Other</option>
+                </select>
+              </td>
+              <td><input type="number" id="emiProtectAmt" value="0" step="1" readonly></td>
+              <td>
+                <select id="emiProtectFunded" class="mode-select">
+                  <option value="funded" selected>Yes</option>
+                  <option value="nonfunded">No</option>
+                </select>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="row">
+      <div class="label">ROI (annual)</div>
+      <div class="prefix-wrap"><span class="pfx">%</span><input type="number" id="roi" value="13" step="0.05"></div>
+    </div>
+    <div class="row">
+      <div class="label">Disbursement date</div>
+      <div>
+        <input type="date" id="disbDate">
+        <div class="date-display" id="disbDateDisplay"></div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="label">First EMI date<small>Auto: 5th of month, 30+ days after disbursement</small></div>
+      <div>
+        <input type="date" id="firstEmi">
+        <div class="date-display" id="firstEmiDisplay"></div>
+      </div>
+    </div>
+    <div class="row-combo">
+      <div class="label">Tenure (for EMI)</div>
+      <div class="combo-line">
+        <select id="tenureSelect">
+          <option value="7" selected>7 years</option>
+          <option value="6">6 years</option>
+          <option value="5">5 years</option>
+          <option value="4">4 years</option>
+          <option value="3">3 years</option>
+          <option value="2">2 years</option>
+          <option value="1">1 year</option>
+          <option value="0">0 years</option>
+        </select>
+        <select id="tenureMonthsSelect">
+          <option value="0" selected>+0 mo</option>
+          <option value="1">+1 mo</option>
+          <option value="2">+2 mo</option>
+          <option value="3">+3 mo</option>
+          <option value="4">+4 mo</option>
+          <option value="5">+5 mo</option>
+          <option value="6">+6 mo</option>
+          <option value="7">+7 mo</option>
+          <option value="8">+8 mo</option>
+          <option value="9">+9 mo</option>
+          <option value="10">+10 mo</option>
+          <option value="11">+11 mo</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="label">EMI Type<small>How gap-days interest is handled</small></div>
+      <select id="emiType">
+        <option value="normal">Normal EMI</option>
+        <option value="addFirst">Add in First EMI</option>
+        <option value="capitalised" selected>Capitalised EMI</option>
+      </select>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="n">03</span> EMI</div>
+    <div class="total-block">
+      <div class="label" id="quickTenureLabel">EMI for 4 years</div>
+      <div class="figure big" id="quickEmi">—</div>
+    </div>
+    <div style="display:flex; gap:8px; margin-top:14px;">
+      <button id="amortBtn" type="button" style="margin-top:0; flex:1; padding:10px 8px; font-size:12px; text-align:center;">Amortization Schedule</button>
+      <button id="custSummaryBtn" type="button" style="margin-top:0; flex:1; padding:10px 8px; font-size:12px; text-align:center;">Customer Summary</button>
+    </div>
+  </section>
+
+  <section id="amortSection" style="display:none;">
+    <div class="sec-head"><span class="n">—</span> Amortization Schedule <span id="amortTenureLabel" style="text-transform:none; font-weight:400; color:var(--muted); font-size:12px;"></span></div>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>#</th><th>Due date</th><th>Opening</th><th>EMI</th><th>Interest</th><th>Principal</th><th>Closing</th></tr></thead>
+        <tbody id="amortTable"></tbody>
+      </table>
+    </div>
+    <p class="note">Interest = Opening balance × ROI / 12, rounded; principal = EMI − interest; final instalment absorbs rounding residue.</p>
+    <div style="display:flex; flex-wrap:wrap; gap:10px;">
+      <button id="amortViewBtn" type="button" style="margin-top:0;">View</button>
+      <button id="amortShareBtn" type="button" class="btn-secondary" style="margin-top:0;">Share</button>
+      <button id="amortPdfBtn" type="button" class="btn-secondary" style="margin-top:0;">Download</button>
+      <button id="amortCloseBtn" type="button" class="btn-secondary" style="margin-top:0;">Close</button>
+    </div>
+  </section>
+
+  <section id="custSummarySection" style="display:none;">
+    <div class="sec-head"><span class="n">—</span> Customer Summary</div>
+    <div id="custSummaryPreview"></div>
+    <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:14px;">
+      <button id="custSummaryViewBtn" type="button" style="margin-top:0;">View</button>
+      <button id="custSummaryShareBtn" type="button" class="btn-secondary" style="margin-top:0;">Share</button>
+      <button id="custSummaryDownloadBtn" type="button" class="btn-secondary" style="margin-top:0;">Download</button>
+      <button id="custSummaryCloseBtn" type="button" class="btn-secondary" style="margin-top:0;">Close</button>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="n">04</span> Total Loan Amount Financed</div>
+    <div class="total-block">
+      <div class="label">Asset loan amount + PA cover + Fee + Insurance</div>
+      <div class="figure" id="totalFinanced">—</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="n">05</span> Gap Days Interest</div>
+    <div class="row">
+      <div class="label">Gap days<small>30E/360, less one 30-day EMI period</small></div>
+      <div class="figure" id="gapDays">—</div>
+    </div>
+    <div class="row">
+      <div class="label">Gap interest<small>Total financed × ROI × Gap days / 360</small></div>
+      <div class="figure" id="gapInterest">—</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="n">06</span> Total Capitalised Loan Amount</div>
+    <div class="total-block">
+      <div class="label">EMI-computation principal</div>
+      <div class="figure big" id="totalCapitalised">—</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="n">07</span> EMI — Multi-Tenure Comparison</div>
+    <table>
+      <thead><tr><th>Tenure</th><th>EMI (₹)</th><th>Total payable</th></tr></thead>
+      <tbody id="emiTable"></tbody>
+    </table>
+    <p class="note">EMI = PMT(ROI/12, months, Total capitalised amount), rounded up to the nearest rupee.</p>
+  </section>
+
+  <div class="assumptions">
+    <div class="sec-head" style="border:none; margin-bottom:6px;">Assumptions</div>
+    <ul>
+      <li>Day-count basis: 30E/360 for gap days and gap interest.</li>
+      <li>Fee/insurance circularity solved algebraically, then rounded up to whole rupees before the Total Financed figure is struck.</li>
+      <li>EMI computed on the Total capitalised loan amount, rounded up to whole rupees.</li>
+      <li>Every figure recalculates live — change any input above.</li>
+    </ul>
+  </div>
+
+  </div>
+
+  <div id="tabPayout" class="tab-panel">
+
+  <section style="margin-top:14px;">
+    <div class="sec-head"><span class="n">01</span> Source Loan Data<span style="text-transform:none; font-weight:400; color:var(--muted); font-size:11px; letter-spacing:0;">&nbsp;— synced from EMI Calculator</span></div>
+    <div class="row">
+      <div class="label">Total Loan Amount Financed</div>
+      <div class="figure" id="payoutFinancedDisplay">—</div>
+    </div>
+    <div class="row">
+      <div class="label">Total Capitalised Loan Amount</div>
+      <div class="figure" id="payoutCapPrincipal">—</div>
+    </div>
+    <div class="row">
+      <div class="label">ROI (annual)</div>
+      <div class="figure" id="payoutRoiDisplay">—</div>
+    </div>
+    <div class="row">
+      <div class="label">Tenure</div>
+      <div class="figure" id="payoutTenureDisplay">—</div>
+    </div>
+    <div class="row highlight">
+      <div class="label">EMI<small>Computed on capitalised loan amount</small></div>
+      <div class="figure big" id="payoutEmiDisplay">—</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="n">02</span> Payout</div>
+    <p class="note" style="margin-bottom:8px;">Dealer Amount = % × Total Loan Amount Financed. Broker Amount is any extra manual payout added on top.</p>
+    <div class="fee-table-wrap">
+      <table class="fee-table">
+        <colgroup>
+          <col class="col-item"><col class="col-pct"><col class="col-amt"><col class="col-fund">
+        </colgroup>
+        <thead>
+          <tr><th>Item</th><th>%</th><th>Dealer Amount (₹)</th><th>Broker Amount (₹)</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="fee-item">Payout</td>
+            <td><input type="number" id="payoutPct" value="4" step="0.05"></td>
+            <td><input type="number" id="payoutAmt" step="1"></td>
+            <td><input type="number" id="payoutOtherAmt" value="0" step="1"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="row highlight" style="margin-top:10px;">
+      <div class="label">Total Payout<small>Dealer Amount + Broker Amount</small></div>
+      <div class="figure" id="payoutTotal">—</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="n">03</span> Impact on ROI</div>
+    <div class="row">
+      <div class="label">Effective Outflow<small>Capitalised loan amount + Payout</small></div>
+      <div class="figure" id="payoutEffectiveOutflow">—</div>
+    </div>
+    <div class="row">
+      <div class="label">Contractual ROI</div>
+      <div class="figure" id="payoutContractualRoi">—</div>
+    </div>
+    <div class="row highlight">
+      <div class="label">Effective ROI to Financier<small>Rate that equates EMI stream to the effective outflow</small></div>
+      <div class="figure big" id="payoutEffectiveRoi">—</div>
+    </div>
+    <div class="row">
+      <div class="label">ROI Erosion</div>
+      <div class="figure" id="payoutRoiErosion">—</div>
+    </div>
+  </section>
+
+  <div class="assumptions">
+    <div class="sec-head" style="border:none; margin-bottom:6px;">Assumptions</div>
+    <ul>
+      <li>Dealer Amount = % × Total Loan Amount Financed; Broker Amount is any extra manual payout, added on top.</li>
+      <li>Effective outflow adds Total Payout (Dealer Amount + Broker Amount) to the Total Capitalised Loan Amount (Section 06 of the EMI tab).</li>
+      <li>EMI here is always computed on the capitalised amount, regardless of the EMI Type selected in the EMI Calculator tab.</li>
+      <li>Effective ROI is solved numerically (bisection) so that the same EMI stream, discounted at that rate, equals the effective outflow (capitalised loan + payout).</li>
+      <li>Every figure recalculates live — change any input on either tab.</li>
+    </ul>
+  </div>
+
+  </div>
+
+  <footer>
+    <span id="dateStamp">—</span>
+    <span>ASSET LOAN CALCULATION · v2</span>
+  </footer>
+  <div style="text-align:right; margin-top:10px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted);">
+    CF9847413535@outlook.com
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const inr = n => '₹' + Math.round(n).toLocaleString('en-IN');
+const inr2 = n => '₹' + n.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+function toISODate(d){
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function calcEmiStartDate(disbDate){
+  const d30 = new Date(disbDate);
+  d30.setDate(d30.getDate() + 30);
+  let candidate = new Date(d30.getFullYear(), d30.getMonth(), 5);
+  if(candidate < d30){
+    candidate = new Date(d30.getFullYear(), d30.getMonth()+1, 5);
+  }
+  return candidate;
+}
+
+function fmtDate(d){
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const yy = String(d.getFullYear()).slice(-2);
+  return `${dd}/${mm}/${yy}`;
+}
+
+function days360European(d1, d2){
+  let y1=d1.getFullYear(), m1=d1.getMonth()+1, day1=d1.getDate();
+  let y2=d2.getFullYear(), m2=d2.getMonth()+1, day2=d2.getDate();
+  if(day1===31) day1=30;
+  if(day2===31) day2=30;
+  return (y2-y1)*360 + (m2-m1)*30 + (day2-day1);
+}
+
+function pmt(rateMonthly, nMonths, principal){
+  if(rateMonthly===0) return principal/nMonths;
+  return (principal*rateMonthly) / (1-Math.pow(1+rateMonthly,-nMonths));
+}
+
+function computeEmi(principal, months, roiAnnual){
+  if(months<=0) return 0;
+  return Math.round(pmt(roiAnnual/12, months, principal));
+}
+
+function pv(rateMonthly, nMonths, emi){
+  if(nMonths<=0) return 0;
+  if(rateMonthly===0) return emi*nMonths;
+  return emi*(1-Math.pow(1+rateMonthly,-nMonths))/rateMonthly;
+}
+
+function solveEffectiveRate(principal, nMonths, emi){
+  // Finds the monthly rate r such that PV(r, nMonths, emi) = principal, via bisection.
+  if(nMonths<=0 || emi<=0 || principal<=0) return 0;
+  let lo = 0, hi = 2;
+  const f = r => pv(r, nMonths, emi) - principal;
+  let tries = 0;
+  while(f(hi) > 0 && tries < 40){ hi *= 2; tries++; }
+  for(let i=0;i<100;i++){
+    const mid = (lo+hi)/2;
+    if(f(mid) > 0) lo = mid; else hi = mid;
+  }
+  return (lo+hi)/2;
+}
+
+let lastTotalFinanced = 0;
+
+function getSelectedTenureMonths(){
+  const years = parseInt($('tenureSelect').value)||0;
+  const months = parseInt($('tenureMonthsSelect').value)||0;
+  return years*12 + months;
+}
+
+function tenureLabelFromMonths(totalMonths){
+  const years = Math.floor(totalMonths/12);
+  const months = totalMonths%12;
+  const parts = [];
+  if(years>0) parts.push(years + ' year' + (years>1?'s':''));
+  if(months>0) parts.push(months + ' month' + (months>1?'s':''));
+  if(parts.length===0) parts.push('0 months');
+  return parts.join(' ');
+}
+
+function recalc(){
+  const assetLoan = parseFloat($('assetLoan').value)||0;
+  const stampCharges = parseFloat($('stampCharges').value)||0;
+  const paCover = parseFloat($('paCover').value)||0;
+  const emiProtect = parseFloat($('emiProtectAmt').value)||0;
+  const roi = (parseFloat($('roi').value)||0)/100;
+  const feePct = (parseFloat($('feePct').value)||0)/100;
+  const insPct = (parseFloat($('insPct').value)||0)/100;
+  const disbDate = new Date($('disbDate').value+'T00:00:00');
+  const firstEmi = new Date($('firstEmi').value+'T00:00:00');
+
+  $('disbDateDisplay').textContent = $('disbDate').value ? fmtDate(disbDate) : '';
+  $('firstEmiDisplay').textContent = $('firstEmi').value ? fmtDate(firstEmi) : '';
+
+  const paCoverFunded = $('paCoverFunded').value === 'funded';
+  const feeFunded = $('feeFunded').value === 'funded';
+  const insFunded = $('insFunded').value === 'funded';
+  const emiProtectFunded = $('emiProtectFunded').value === 'funded';
+
+  const loanBase = assetLoan + (paCoverFunded ? paCover : 0) + (emiProtectFunded ? emiProtect : 0);
+  const fundedPctSum = (feeFunded ? feePct : 0) + (insFunded ? insPct : 0);
+  const T = fundedPctSum < 1 ? loanBase / (1 - fundedPctSum) : loanBase;
+
+  const processingFee = feeFunded ? Math.ceil(feePct*T) : Math.ceil(feePct*loanBase);
+  const lifeInsurance = insFunded ? Math.ceil(insPct*T) : Math.ceil(insPct*loanBase);
+
+  const totalFinanced = loanBase + (feeFunded ? processingFee : 0) + (insFunded ? lifeInsurance : 0);
+  lastTotalFinanced = totalFinanced;
+
+  const releaseAmount = assetLoan - stampCharges
+    - (paCoverFunded ? 0 : paCover)
+    - (emiProtectFunded ? 0 : emiProtect)
+    - (feeFunded ? 0 : processingFee)
+    - (insFunded ? 0 : lifeInsurance);
+
+  const onRoadPrice = parseFloat($('onRoadPrice').value)||0;
+  const downPayment = onRoadPrice - releaseAmount;
+
+  if(document.activeElement !== $('ltvPct')){
+    $('ltvPct').value = onRoadPrice>0 ? (assetLoan/onRoadPrice*100).toFixed(2) : 0;
+  }
+
+  let gapDays = days360European(disbDate, firstEmi) - 30;
+  const gapInterest = Math.round((totalFinanced*roi*gapDays/360)*100)/100;
+  const totalCapitalised = totalFinanced + gapInterest;
+
+  $('releaseAmount').textContent = inr(releaseAmount);
+  $('downPayment').textContent = inr(downPayment);
+  $('downPayment').className = 'figure' + (downPayment<0?' neg':'');
+  if(document.activeElement !== $('processingFeeAmt')){
+    $('processingFeeAmt').value = processingFee;
+  }
+  if(document.activeElement !== $('lifeInsuranceAmt')){
+    $('lifeInsuranceAmt').value = lifeInsurance;
+  }
+  $('totalFinanced').textContent = inr(totalFinanced);
+  $('gapDays').textContent = gapDays + ' days';
+  $('gapInterest').textContent = inr2(gapInterest);
+  $('gapInterest').className = 'figure' + (gapInterest<0?' neg':'');
+  $('totalCapitalised').textContent = inr(totalCapitalised);
+  $('amortBtn').dataset.principal = totalCapitalised;
+  $('amortBtn').dataset.financed = totalFinanced;
+  $('amortBtn').dataset.gapInterest = gapInterest;
+
+  const emiType = $('emiType').value;
+  const emiPrincipal = emiType === 'capitalised' ? totalCapitalised : totalFinanced;
+
+  const tenures = [7,6,5,4,3,2,1];
+  let rows = '';
+  const selYears = parseInt($('tenureSelect').value)||0;
+  const selMonths = parseInt($('tenureMonthsSelect').value)||0;
+  const emis = tenures.map(t => computeEmi(emiPrincipal, t*12, roi));
+  tenures.forEach((t,i)=>{
+    const emi = emis[i];
+    const totalPay = emi * t * 12;
+    const isSelected = (selMonths===0 && t===selYears);
+    rows += `<tr class="${isSelected?'best':''}"><td class="tenure">${t} year${t>1?'s':''}</td><td>${inr(emi)}</td><td>${inr(totalPay)}</td></tr>`;
+  });
+  $('emiTable').innerHTML = rows;
+
+  const selTotalMonths = getSelectedTenureMonths();
+  const quickEmi = computeEmi(emiPrincipal, selTotalMonths, roi);
+  $('quickEmi').textContent = inr(quickEmi);
+  const emiTypeLabel = emiType==='normal' ? ' · no gap interest' : emiType==='addFirst' ? ' · gap interest in 1st EMI' : ' · gap interest capitalised';
+  $('quickTenureLabel').textContent = `EMI for ${tenureLabelFromMonths(selTotalMonths)}${emiTypeLabel}`;
+
+  $('dateStamp').textContent = 'AS OF ' + fmtDate(new Date());
+
+  const stamp = $('stamp');
+  stamp.classList.add('pulse');
+  clearTimeout(stamp._t);
+  stamp._t = setTimeout(()=>stamp.classList.remove('pulse'), 200);
+
+  payoutRecalc();
+}
+
+function payoutRecalc(){
+  const totalCapitalised = parseFloat($('totalCapitalised').textContent.replace(/[^0-9.-]/g,''))||0;
+  const totalFinanced = parseFloat($('totalFinanced').textContent.replace(/[^0-9.-]/g,''))||0;
+  const roi = parseFloat($('roi').value)||0;
+  const months = getSelectedTenureMonths();
+  const emi = computeEmi(totalCapitalised, months, roi/100);
+
+  $('payoutFinancedDisplay').textContent = inr(totalFinanced);
+  $('payoutCapPrincipal').textContent = inr(totalCapitalised);
+  $('payoutRoiDisplay').textContent = roi.toFixed(2) + ' %';
+  $('payoutTenureDisplay').textContent = tenureLabelFromMonths(months);
+  $('payoutEmiDisplay').textContent = inr(emi);
+  $('payoutContractualRoi').textContent = roi.toFixed(2) + ' %';
+
+  const payoutPct = parseFloat($('payoutPct').value)||0;
+  let payoutAmt;
+  if(document.activeElement === $('payoutAmt')){
+    payoutAmt = parseFloat($('payoutAmt').value)||0;
+    $('payoutPct').value = totalFinanced>0 ? (payoutAmt/totalFinanced*100).toFixed(3) : 0;
+  } else {
+    payoutAmt = Math.round(totalFinanced * payoutPct/100);
+    $('payoutAmt').value = payoutAmt;
+  }
+
+  const payoutOtherAmt = parseFloat($('payoutOtherAmt').value)||0;
+  const totalPayout = payoutAmt + payoutOtherAmt;
+  $('payoutTotal').textContent = inr(totalPayout);
+
+  const effectiveOutflow = totalCapitalised + totalPayout;
+  $('payoutEffectiveOutflow').textContent = inr(effectiveOutflow);
+
+  const rMonthly = solveEffectiveRate(effectiveOutflow, months, emi);
+  const effectiveRoi = rMonthly*12*100;
+  const erosion = roi - effectiveRoi;
+
+  $('payoutEffectiveRoi').textContent = (months>0 && emi>0) ? effectiveRoi.toFixed(2) + ' %' : '—';
+  $('payoutRoiErosion').textContent = (months>0 && emi>0) ? erosion.toFixed(2) + ' pp' : '—';
+  $('payoutRoiErosion').className = 'figure' + (erosion>0 ? ' neg' : '');
+}
+
+$('payoutPct').addEventListener('input', payoutRecalc);
+$('payoutAmt').addEventListener('input', payoutRecalc);
+$('payoutOtherAmt').addEventListener('input', payoutRecalc);
+
+document.querySelectorAll('.tabnav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tabnav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    $(btn.dataset.tab).classList.add('active');
+    if(btn.dataset.tab === 'tabPayout') payoutRecalc();
+  });
+});
+
+// ---- Save / Restore previous calculations ----
+const HISTORY_KEY = 'vfEmiHistory_v1';
+const HISTORY_MAX = 20;
+
+function historyFieldIds(){
+  return Array.from(document.querySelectorAll('input[id], select[id]')).map(el => el.id);
+}
+
+function collectSnapshot(){
+  const data = {};
+  historyFieldIds().forEach(id => {
+    const el = $(id);
+    if(el) data[id] = el.value;
+  });
+  return data;
+}
+
+function applySnapshot(data){
+  Object.keys(data).forEach(id => {
+    const el = $(id);
+    if(el) el.value = data[id];
+  });
+  recalc();
+}
+
+function loadHistory(){
+  try{ return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; }
+  catch(e){ return []; }
+}
+
+function persistHistory(list){
+  try{ localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); }
+  catch(e){ /* storage unavailable — history won't persist this session */ }
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str==null ? '' : str;
+  return div.innerHTML;
+}
+
+function formatHistoryTs(ts){
+  const d = new Date(ts);
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yy = String(d.getFullYear()).slice(-2);
+  const time = d.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
+  return `${dd}/${mm}/${yy} · ${time}`;
+}
+
+function buildSnapshotPayload(){
+  const custName = ($('custName').value || '').trim();
+  const custVehicle = ($('custVehicle').value || '').trim();
+  const label = (custName || custVehicle) ? [custName, custVehicle].filter(Boolean).join(' — ') : 'Untitled entry';
+  const assetLoanVal = parseFloat($('assetLoan').value) || 0;
+  const emiText = $('quickEmi').textContent || '—';
+  return {
+    ts: Date.now(),
+    label,
+    meta: `Loan ${inr(assetLoanVal)} · EMI ${emiText}`,
+    data: collectSnapshot()
+  };
+}
+
+function snapshotsEqual(a, b){
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  for(const k of keys){
+    if((a[k] ?? '') !== (b[k] ?? '')) return false;
+  }
+  return true;
+}
+
+function snapshotsEqual(a, b){
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  for(const k of keys){
+    if((a[k] ?? '') !== (b[k] ?? '')) return false;
+  }
+  return true;
+}
+
+function showToast(msg, duration){
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), duration || 2200);
+}
+
+function commitSnapshot(payload, removeDupes){
+  let list = loadHistory();
+  if(removeDupes){
+    list = list.filter(x => !snapshotsEqual(x.data, payload.data));
+  }
+  const snapshot = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), ...payload };
+  list.unshift(snapshot);
+  if(list.length > HISTORY_MAX) list.length = HISTORY_MAX;
+  persistHistory(list);
+
+  const stamp = $('stamp');
+  stamp.classList.add('pulse');
+  clearTimeout(stamp._t);
+  stamp._t = setTimeout(() => stamp.classList.remove('pulse'), 200);
+
+  showToast(removeDupes ? 'Duplicate removed — calculation saved.' : 'Calculation saved.');
+}
+
+function renderHistory(){
+  const list = loadHistory();
+  const container = $('historyList');
+  const empty = $('historyEmpty');
+  container.innerHTML = '';
+
+  if(list.length === 0){
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  list.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'history-item';
+    row.innerHTML = `
+      <div class="history-item-info">
+        <div class="history-item-label">${escapeHtml(item.label)}</div>
+        <div class="history-item-meta">${escapeHtml(item.meta)} · ${formatHistoryTs(item.ts)}</div>
+      </div>
+      <div class="history-item-actions">
+        <button type="button" class="history-restore" data-id="${item.id}">View</button>
+        <button type="button" class="history-delete" data-id="${item.id}" aria-label="Delete">✕</button>
+      </div>`;
+    container.appendChild(row);
+  });
+
+  container.querySelectorAll('.history-restore').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const item = loadHistory().find(x => x.id === btn.dataset.id);
+      if(item){
+        applySnapshot(item.data);
+        $('historySection').style.display = 'none';
+        window.scrollTo({top: 0, behavior: 'smooth'});
+      }
+    });
+  });
+
+  container.querySelectorAll('.history-delete').forEach(btn => {
+    btn.addEventListener('click', () => {
+      persistHistory(loadHistory().filter(x => x.id !== btn.dataset.id));
+      renderHistory();
+      showToast('Deleted.');
+    });
+  });
+}
+
+$('saveBtn').addEventListener('click', () => {
+  const payload = buildSnapshotPayload();
+  const hasDupe = loadHistory().some(x => snapshotsEqual(x.data, payload.data));
+  commitSnapshot(payload, hasDupe);
+});
+
+$('restoreBtn').addEventListener('click', () => {
+  renderHistory();
+  $('historySection').style.display = 'block';
+  $('historySection').scrollIntoView({behavior: 'smooth', block: 'start'});
+});
+
+$('historyCloseBtn').addEventListener('click', () => {
+  $('historySection').style.display = 'none';
+});
+
+document.querySelectorAll('input, select').forEach(el => {
+  if(el.id === 'processingFeeAmt' || el.id === 'lifeInsuranceAmt' || el.id === 'ltvPct' || el.id === 'onRoadPrice' || el.id === 'payoutPct' || el.id === 'payoutAmt' || el.id === 'payoutOtherAmt') return;
+  el.addEventListener('input', recalc);
+  el.addEventListener('change', recalc);
+});
+
+function getLoanBase(){
+  const assetLoan = parseFloat($('assetLoan').value)||0;
+  const paCover = parseFloat($('paCover').value)||0;
+  const paCoverFunded = $('paCoverFunded').value === 'funded';
+  return assetLoan + (paCoverFunded ? paCover : 0);
+}
+
+$('processingFeeAmt').addEventListener('input', () => {
+  const amt = parseFloat($('processingFeeAmt').value)||0;
+  const feeFunded = $('feeFunded').value === 'funded';
+  const base = feeFunded ? (lastTotalFinanced || getLoanBase()) : getLoanBase();
+  $('feePct').value = base>0 ? (amt/base*100).toFixed(3) : 0;
+  recalc();
+});
+
+$('lifeInsuranceAmt').addEventListener('input', () => {
+  const amt = parseFloat($('lifeInsuranceAmt').value)||0;
+  const insFunded = $('insFunded').value === 'funded';
+  const base = insFunded ? (lastTotalFinanced || getLoanBase()) : getLoanBase();
+  $('insPct').value = base>0 ? (amt/base*100).toFixed(3) : 0;
+  recalc();
+});
+
+$('ltvPct').addEventListener('input', () => {
+  const ltv = parseFloat($('ltvPct').value)||0;
+  const onRoadPrice = parseFloat($('onRoadPrice').value)||0;
+  $('assetLoan').value = Math.round(onRoadPrice * ltv / 100);
+  recalc();
+});
+
+$('onRoadPrice').addEventListener('input', () => {
+  recalc();
+});
+
+(function initDates(){
+  const disbEl = $('disbDate');
+  const emiEl = $('firstEmi');
+
+  if(disbEl && !disbEl.value){
+    disbEl.value = toISODate(new Date());
+  }
+  if(emiEl && !emiEl.value && disbEl.value){
+    emiEl.value = toISODate(calcEmiStartDate(new Date(disbEl.value+'T00:00:00')));
+  }
+
+  if(disbEl){
+    disbEl.addEventListener('change', () => {
+      if(disbEl.value){
+        emiEl.value = toISODate(calcEmiStartDate(new Date(disbEl.value+'T00:00:00')));
+        recalc();
+      }
+    });
+  }
+})();
+
+function styleFundedSelect(el){
+  el.classList.remove('is-funded','is-nonfunded');
+  el.classList.add(el.value === 'funded' ? 'is-funded' : 'is-nonfunded');
+}
+
+['paCoverFunded','feeFunded','insFunded','emiProtectFunded'].forEach(id => {
+  const el = $(id);
+  styleFundedSelect(el);
+  el.addEventListener('change', () => styleFundedSelect(el));
+});
+
+function applyAmountPreset(presetId, amtId){
+  const preset = $(presetId).value;
+  const amtEl = $(amtId);
+  if(preset === 'other'){
+    amtEl.readOnly = false;
+    amtEl.value = 0;
+    amtEl.focus();
+    amtEl.select();
+  } else if(preset === 'nil'){
+    amtEl.readOnly = true;
+    amtEl.value = 0;
+  } else {
+    amtEl.readOnly = true;
+    amtEl.value = preset;
+  }
+  recalc();
+}
+
+$('paCoverPreset').addEventListener('change', () => applyAmountPreset('paCoverPreset','paCover'));
+$('emiProtectPreset').addEventListener('change', () => applyAmountPreset('emiProtectPreset','emiProtectAmt'));
+
+function styleEmiTypeSelect(el){
+  el.classList.remove('is-capitalised','is-addfirst','is-normal');
+  const cls = el.value === 'capitalised' ? 'is-capitalised' : el.value === 'addFirst' ? 'is-addfirst' : 'is-normal';
+  el.classList.add(cls);
+}
+
+styleEmiTypeSelect($('emiType'));
+$('emiType').addEventListener('change', () => styleEmiTypeSelect($('emiType')));
+
+recalc();
+
+function addMonths(date, n){
+  const d = new Date(date);
+  d.setMonth(d.getMonth() + n);
+  return d;
+}
+
+const pdfInr = n => 'Rs. ' + Math.round(n).toLocaleString('en-IN');
+const pdfInr2 = n => 'Rs. ' + n.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+let lastAmortSchedule = null;
+
+function buildAmortSchedule(){
+  const roi = (parseFloat($('roi').value)||0)/100;
+  const totalCapitalised = parseFloat($('amortBtn').dataset.principal)||0;
+  const totalFinanced = parseFloat($('amortBtn').dataset.financed)||0;
+  const gapInterestVal = parseFloat($('amortBtn').dataset.gapInterest)||0;
+  const emiType = $('emiType').value;
+  const principal = emiType === 'capitalised' ? totalCapitalised : totalFinanced;
+  const months = getSelectedTenureMonths();
+  const firstEmi = new Date($('firstEmi').value+'T00:00:00');
+  const emi = computeEmi(principal, months, roi);
+
+  let rows = '';
+  const rawRows = [];
+
+  let balance = principal;
+  for(let i=1;i<=months;i++){
+    const dueDate = addMonths(firstEmi, i-1);
+    const interest = Math.round(balance * (roi/12) * 100)/100;
+    let principalPortion = emi - interest;
+    let thisEmi = emi;
+    let closing = balance - principalPortion;
+    if(i===months){
+      principalPortion = balance;
+      thisEmi = Math.ceil(principalPortion + interest);
+      closing = 0;
+    }
+    let extraNote = '';
+    if(i===1 && emiType==='addFirst' && gapInterestVal>0){
+      thisEmi = Math.ceil(thisEmi + gapInterestVal);
+      extraNote = ` (incl. ${inr2(gapInterestVal)} gap interest)`;
+    }
+    const openingVal = balance, closingVal = Math.max(closing,0);
+    rows += `<tr><td class="tenure">${i}</td><td class="tenure">${fmtDate(dueDate)}</td><td>${inr2(openingVal)}</td><td>${inr(thisEmi)}${extraNote?'<br><small style="color:var(--muted); font-size:10px;">+ gap interest</small>':''}</td><td>${inr2(interest)}</td><td>${inr2(principalPortion)}</td><td>${inr2(closingVal)}</td></tr>`;
+    rawRows.push({ n:i, date: fmtDate(dueDate), opening: openingVal, emi: thisEmi, interest, principal: principalPortion, closing: closingVal, note: extraNote });
+    balance = closing;
+  }
+
+  $('amortTable').innerHTML = rows;
+  const emiTypeLabel = emiType==='normal' ? 'Normal EMI' : emiType==='addFirst' ? 'Gap interest in 1st EMI' : 'Capitalised EMI';
+  const labelText = `${tenureLabelFromMonths(months)} · ${months} instalments · EMI ${inr(emi)} · ${emiTypeLabel}`;
+  $('amortTenureLabel').textContent = `— ${labelText}`;
+  $('custSummarySection').style.display = 'none';
+  $('amortSection').style.display = 'block';
+  $('amortSection').scrollIntoView({behavior:'smooth', block:'start'});
+
+  lastAmortSchedule = { rawRows, months, emi, principal, roi, emiType };
+}
+
+function buildAmortPdfDoc(rawRows, months, emi, principal, roi, emiType){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'pt', format:'a4', orientation:'landscape' });
+
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(15);
+  doc.setTextColor(15,47,102);
+  doc.text('Asset Loan - Amortization Schedule', 40, 40);
+
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(10);
+  doc.setTextColor(80,80,80);
+  const emiTypeLabel = emiType==='normal' ? 'Normal EMI (no gap interest)' : emiType==='addFirst' ? 'Gap interest added to 1st EMI' : 'Capitalised EMI (gap interest in principal)';
+  const subtitle = `Tenure: ${tenureLabelFromMonths(months)}  |  Instalments: ${months}  |  ROI: ${(roi*100).toFixed(2)}%  |  EMI: ${pdfInr(emi)}  |  Principal: ${pdfInr2(principal)}  |  ${emiTypeLabel}`;
+  doc.text(subtitle, 40, 58);
+
+  const body = rawRows.map(r => [
+    r.n,
+    r.date,
+    pdfInr2(r.opening),
+    pdfInr(r.emi) + (r.note ? ' *' : ''),
+    pdfInr2(r.interest),
+    pdfInr2(r.principal),
+    pdfInr2(r.closing)
+  ]);
+
+  doc.autoTable({
+    startY: 74,
+    head: [['#','Due date','Opening','EMI','Interest','Principal','Closing']],
+    body: body,
+    styles: { font:'helvetica', fontSize:8, textColor:[35,50,71], cellPadding:4, overflow:'visible' },
+    headStyles: { fillColor:[26,86,219], textColor:255, fontStyle:'bold', fontSize:8 },
+    alternateRowStyles: { fillColor:[245,248,255] },
+    columnStyles: {
+      0:{ halign:'left', cellWidth:24 },
+      1:{ halign:'left', cellWidth:62 },
+      2:{ halign:'right', cellWidth:80 },
+      3:{ halign:'right', cellWidth:80 },
+      4:{ halign:'right', cellWidth:75 },
+      5:{ halign:'right', cellWidth:80 },
+      6:{ halign:'right', cellWidth:80 }
+    },
+    margin:{ left:40, right:40 },
+    theme:'grid'
+  });
+
+  if(rawRows.some(r=>r.note)){
+    doc.setFontSize(8);
+    doc.setTextColor(120,120,120);
+    doc.text('* includes gap-days interest added to the first instalment', 40, doc.lastAutoTable.finalY + 14);
+  }
+
+  return doc;
+}
+
+function amortPdfFileName(months){
+  return `schedule.pdf`;
+}
+
+function outputPdf(doc, fileName, mode){
+  if(mode === 'view'){
+    const url = doc.output('bloburl');
+    const win = window.open(url, '_blank');
+    if(!win){
+      // popup blocked or unsupported in this WebView — fall back to a same-tab navigation
+      window.location.href = url;
+    }
+  } else if(mode === 'share'){
+    const openFallback = () => {
+      const url = doc.output('bloburl');
+      const win = window.open(url, '_blank');
+      if(!win) window.location.href = url;
+    };
+    try{
+      const blob = doc.output('blob');
+      const file = new File([blob], fileName, {type: 'application/pdf'});
+      if(navigator.canShare && navigator.canShare({files: [file]})){
+        navigator.share({files: [file], title: fileName}).catch(() => {});
+      } else {
+        // Device/browser can't share a file directly — open the PDF so the
+        // user can use their PDF viewer's own share option instead.
+        openFallback();
+      }
+    }catch(err){
+      openFallback();
+    }
+  } else {
+    // Try the standard download first (works in real browsers and most PWA installs).
+    try{
+      doc.save(fileName);
+    }catch(saveErr){
+      // Fallback for WebView-based app wrappers that don't support the download
+      // attribute: open the PDF in a new tab so the user can view/share/save it
+      // through the phone's own PDF viewer instead.
+      const url = doc.output('bloburl');
+      const win = window.open(url, '_blank');
+      if(!win) window.location.href = url;
+    }
+  }
+}
+
+$('amortBtn').addEventListener('click', () => {
+  if($('amortSection').style.display === 'block'){
+    $('amortSection').style.display = 'none';
+    return;
+  }
+  buildAmortSchedule();
+});
+
+$('amortViewBtn').addEventListener('click', () => {
+  try{
+    if(!lastAmortSchedule){
+      buildAmortSchedule();
+    }
+    const s = lastAmortSchedule;
+    const doc = buildAmortPdfDoc(s.rawRows, s.months, s.emi, s.principal, s.roi, s.emiType);
+    outputPdf(doc, amortPdfFileName(s.months), 'view');
+  }catch(err){
+    alert('Could not open the PDF. If you are using the installed app, please check your internet connection and try again — the PDF tool needs to load once from the internet.');
+  }
+});
+
+$('amortPdfBtn').addEventListener('click', () => {
+  try{
+    if(!lastAmortSchedule){
+      buildAmortSchedule();
+    }
+    const s = lastAmortSchedule;
+    const doc = buildAmortPdfDoc(s.rawRows, s.months, s.emi, s.principal, s.roi, s.emiType);
+    outputPdf(doc, amortPdfFileName(s.months), 'download');
+  }catch(err){
+    alert('Could not generate the PDF. If you are using the installed app, please check your internet connection and try again — the PDF tool needs to load once from the internet.');
+  }
+});
+
+$('amortShareBtn').addEventListener('click', () => {
+  try{
+    if(!lastAmortSchedule){
+      buildAmortSchedule();
+    }
+    const s = lastAmortSchedule;
+    const doc = buildAmortPdfDoc(s.rawRows, s.months, s.emi, s.principal, s.roi, s.emiType);
+    outputPdf(doc, amortPdfFileName(s.months), 'share');
+  }catch(err){
+    alert('Could not share the PDF. If you are using the installed app, please check your internet connection and try again — the PDF tool needs to load once from the internet.');
+  }
+});
+
+function gatherCustomerSummaryData(){
+  const custName = $('custName').value.trim() || '—';
+  const custVehicle = $('custVehicle').value.trim() || '—';
+  const custDealer = $('custDealer').value.trim() || '—';
+  const onRoadPrice = parseFloat($('onRoadPrice').value)||0;
+  const assetLoan = parseFloat($('assetLoan').value)||0;
+  const stampDuty = parseFloat($('stampCharges').value)||0;
+  const releasingAmount = parseFloat($('releaseAmount').textContent.replace(/[^0-9.-]/g,''))||0;
+  const downPayment = parseFloat($('downPayment').textContent.replace(/[^0-9.-]/g,''))||0;
+  const paCover = parseFloat($('paCover').value)||0;
+  const emiProtect = parseFloat($('emiProtectAmt').value)||0;
+  const processingFee = parseFloat($('processingFeeAmt').value)||0;
+  const lifeInsurance = parseFloat($('lifeInsuranceAmt').value)||0;
+  const totalFinanced = parseFloat($('totalFinanced').textContent.replace(/[^0-9.-]/g,''))||0;
+  const gapDays = parseFloat($('gapDays').textContent.replace(/[^0-9.-]/g,''))||0;
+  const gapInterest = parseFloat($('gapInterest').textContent.replace(/[^0-9.-]/g,''))||0;
+  const totalCapitalised = parseFloat($('totalCapitalised').textContent.replace(/[^0-9.-]/g,''))||0;
+  const roi = parseFloat($('roi').value)||0;
+  const totalMonths = getSelectedTenureMonths();
+  const emiStart = new Date($('firstEmi').value+'T00:00:00');
+  const emiEnd = addMonths(emiStart, totalMonths - 1);
+  const emiType = $('emiType').value;
+  const emiPrincipal = emiType === 'capitalised' ? totalCapitalised : totalFinanced;
+  const emi = computeEmi(emiPrincipal, totalMonths, roi/100);
+  const tenureLabel = `${tenureLabelFromMonths(totalMonths)} (${totalMonths} months)`;
+  const emiTypeLabel = emiType==='normal' ? 'Normal EMI (no gap interest)' : emiType==='addFirst' ? 'Gap interest added to 1st EMI' : 'Capitalised EMI';
+  const firstEmiAmount = emiType==='addFirst' ? Math.ceil(emi + gapInterest) : emi;
+
+  return { custName, custVehicle, custDealer, onRoadPrice, downPayment, assetLoan, stampDuty, releasingAmount,
+    paCover, emiProtect, processingFee, lifeInsurance, totalFinanced, gapDays, gapInterest, totalCapitalised,
+    roi, totalMonths, tenureLabel, emiStart, emiEnd, emi, emiType, emiTypeLabel, firstEmiAmount };
+}
+
+function renderCustomerSummaryPreview(s){
+  const custRows = [
+    ['Customer name', s.custName],
+    ['Vehicle', s.custVehicle],
+    ['Dealer', s.custDealer]
+  ];
+  const loanRows = [
+    ['Asset loan amount', inr(s.assetLoan)],
+    ['Stamp Duty', inr(s.stampDuty)],
+    ['Net Disb Amount', inr(s.releasingAmount)],
+    ['PA Cover', inr(s.paCover)],
+    ['EMI Protect', inr(s.emiProtect)],
+    ['Processing fee', inr(s.processingFee)],
+    ['Life insurance', inr(s.lifeInsurance)],
+    ['Total loan amount financed', inr(s.totalFinanced)],
+    ['Gap days', s.gapDays + ' days'],
+    ['Gap interest', inr2(s.gapInterest)],
+    ['Total loan amount capitalised', inr(s.totalCapitalised)],
+    ['Tenure', s.tenureLabel],
+    ['EMI Type', s.emiTypeLabel],
+    ['EMI', inr(s.emi)],
+    ...(s.emiType==='addFirst' ? [['First EMI (incl. gap interest)', inr(s.firstEmiAmount)]] : []),
+    ['EMI start date', fmtDate(s.emiStart)],
+    ['EMI end date', fmtDate(s.emiEnd)],
+    ['ROI', s.roi.toFixed(2) + ' %']
+  ];
+  const all = [...custRows, ...loanRows];
+  const highlightHtml = `
+    <div style="display:flex; gap:10px; margin-bottom:14px;">
+      <div style="flex:1; background:var(--blue-soft); border-radius:12px; padding:14px 16px; text-align:center;">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--blue-mid); margin-bottom:4px;">Tenure</div>
+        <div style="font-family:'Fraunces',serif; font-weight:600; font-size:22px; color:var(--ink);">${s.tenureLabel}</div>
+      </div>
+      <div style="flex:1; background:var(--blue-soft); border-radius:12px; padding:14px 16px; text-align:center;">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--blue-mid); margin-bottom:4px;">EMI</div>
+        <div style="font-family:'Fraunces',serif; font-weight:600; font-size:22px; color:var(--blue);">${inr(s.emi)}</div>
+      </div>
+    </div>`;
+  $('custSummaryPreview').innerHTML = highlightHtml + all.map(([k,v]) =>
+    `<div class="summary-row"><span class="k">${k}</span><span class="v">${v}</span></div>`
+  ).join('');
+}
+
+function buildCustomerSummaryDoc(s){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'pt', format:'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(16);
+  doc.setTextColor(15,47,102);
+  doc.text('Loan Summary', 40, 44);
+
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(10);
+  doc.setTextColor(100,100,100);
+  doc.text(`Issued: ${fmtDate(new Date())}`, 40, 62);
+
+  const custRows = [
+    ['Customer name', s.custName],
+    ['Vehicle', s.custVehicle],
+    ['Dealer', s.custDealer]
+  ];
+
+  doc.autoTable({
+    startY: 78,
+    body: custRows,
+    styles: { font:'helvetica', fontSize:11, textColor:[35,50,71], cellPadding:7 },
+    columnStyles: {
+      0:{ fontStyle:'bold', textColor:[15,47,102], cellWidth: pageWidth*0.3 },
+      1:{ }
+    },
+    alternateRowStyles: { fillColor:[245,248,255] },
+    margin:{ left:40, right:40 },
+    theme:'grid'
+  });
+
+  const highlightY = doc.lastAutoTable.finalY + 16;
+  const boxWidth = (pageWidth - 80 - 12) / 2;
+  const boxHeight = 46;
+
+  doc.setFillColor(232,240,254);
+  doc.roundedRect(40, highlightY, boxWidth, boxHeight, 6, 6, 'F');
+  doc.roundedRect(40 + boxWidth + 12, highlightY, boxWidth, boxHeight, 6, 6, 'F');
+
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(9);
+  doc.setTextColor(74,127,232);
+  doc.text('TENURE', 40 + boxWidth/2, highlightY + 16, { align:'center' });
+  doc.text('EMI', 40 + boxWidth + 12 + boxWidth/2, highlightY + 16, { align:'center' });
+
+  doc.setFontSize(16);
+  doc.setTextColor(15,47,102);
+  doc.text(s.tenureLabel, 40 + boxWidth/2, highlightY + 34, { align:'center' });
+  doc.setTextColor(26,86,219);
+  doc.text(pdfInr(s.emi), 40 + boxWidth + 12 + boxWidth/2, highlightY + 34, { align:'center' });
+
+  const rows = [
+    ['Asset loan amount', pdfInr(s.assetLoan)],
+    ['Stamp Duty', pdfInr(s.stampDuty)],
+    ['Net Disb Amount', pdfInr(s.releasingAmount)],
+    ['PA Cover', pdfInr(s.paCover)],
+    ['EMI Protect', pdfInr(s.emiProtect)],
+    ['Processing fee', pdfInr(s.processingFee)],
+    ['Life insurance', pdfInr(s.lifeInsurance)],
+    ['Total loan amount financed', pdfInr(s.totalFinanced)],
+    ['Gap days', String(s.gapDays)],
+    ['Gap interest', pdfInr(s.gapInterest)],
+    ['Total loan amount capitalised', pdfInr(s.totalCapitalised)],
+    ['Tenure', s.tenureLabel],
+    ['EMI Type', s.emiTypeLabel],
+    ['EMI', pdfInr(s.emi)],
+    ...(s.emiType==='addFirst' ? [['First EMI (incl. gap interest)', pdfInr(s.firstEmiAmount)]] : []),
+    ['EMI start date', fmtDate(s.emiStart)],
+    ['EMI end date', fmtDate(s.emiEnd)],
+    ['ROI', s.roi.toFixed(2) + ' %']
+  ];
+
+  doc.autoTable({
+    startY: highlightY + boxHeight + 16,
+    body: rows,
+    styles: { font:'helvetica', fontSize:11, textColor:[35,50,71], cellPadding:8 },
+    columnStyles: {
+      0:{ fontStyle:'bold', textColor:[15,47,102], cellWidth: pageWidth*0.5 },
+      1:{ halign:'right' }
+    },
+    alternateRowStyles: { fillColor:[245,248,255] },
+    margin:{ left:40, right:40 },
+    theme:'grid'
+  });
+
+  return doc;
+}
+
+function pdfFileName(custName){
+  const safeName = custName !== '—' ? custName.replace(/[\\/:*?"<>|]+/g,'').trim() : 'customer';
+  return `summery(${safeName}).pdf`;
+}
+
+let lastCustSummary = null;
+
+$('custSummaryBtn').addEventListener('click', () => {
+  if($('custSummarySection').style.display === 'block'){
+    $('custSummarySection').style.display = 'none';
+    return;
+  }
+  const s = gatherCustomerSummaryData();
+  lastCustSummary = s;
+  renderCustomerSummaryPreview(s);
+  $('amortSection').style.display = 'none';
+  $('custSummarySection').style.display = 'block';
+  $('custSummarySection').scrollIntoView({behavior:'smooth', block:'start'});
+});
+
+$('custSummaryViewBtn').addEventListener('click', () => {
+  if(!lastCustSummary) return;
+  try{
+    const doc = buildCustomerSummaryDoc(lastCustSummary);
+    outputPdf(doc, pdfFileName(lastCustSummary.custName), 'view');
+  }catch(err){
+    alert('Could not open the PDF. If you are using the installed app, please check your internet connection and try again — the PDF tool needs to load once from the internet.');
+  }
+});
+
+$('custSummaryDownloadBtn').addEventListener('click', () => {
+  if(!lastCustSummary) return;
+  try{
+    const doc = buildCustomerSummaryDoc(lastCustSummary);
+    outputPdf(doc, pdfFileName(lastCustSummary.custName), 'download');
+  }catch(err){
+    alert('Could not generate the PDF. If you are using the installed app, please check your internet connection and try again — the PDF tool needs to load once from the internet.');
+  }
+});
+
+$('custSummaryShareBtn').addEventListener('click', () => {
+  if(!lastCustSummary) return;
+  try{
+    const doc = buildCustomerSummaryDoc(lastCustSummary);
+    outputPdf(doc, pdfFileName(lastCustSummary.custName), 'share');
+  }catch(err){
+    alert('Could not share the PDF. If you are using the installed app, please check your internet connection and try again — the PDF tool needs to load once from the internet.');
+  }
+});
+
+$('custSummaryCloseBtn').addEventListener('click', () => {
+  $('custSummarySection').style.display = 'none';
+});
+
+$('amortCloseBtn').addEventListener('click', () => {
+  $('amortSection').style.display = 'none';
+});
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js').catch(()=>{});
+  });
+}
+</script>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+</body>
+</html>
